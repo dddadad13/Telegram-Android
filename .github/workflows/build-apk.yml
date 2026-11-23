@@ -1,0 +1,60 @@
+name: Build Custom Telegram APK
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Patch Server IP, Port and RSA Key
+        run: |
+          python3 -c '
+          import re
+
+          new_key = """const char *kPublicRSAKeys[] = { "\\
+          -----BEGIN RSA PUBLIC KEY-----\\n\\
+          MIIBCgKCAQEA4WD7zx+TVWEa9fTG7PQrvCggOO0rFZreU++cecAZI2xGFtE+hDSR\\n\\
+          8uFqYuIOvb/QC4bU2A3CuaGefXpQOalm2GkOyH5yDb40em7FyTgvxCB+1WpgPf+Y\\n\\
+          C13cElL7ltrPUzlJ8p5/jjEgpQ693Ip66uybrPA3oMIrHvE7PUeuPO7yuh1uJAgn\\n\\
+          lRxUoLf5hRGCidiro/qTtwpCLOouh5HPGDsriZje4u2/7iUXLoEH3H0eoa3DwjVf\\n\\
+          rcs2d0AmFsL96k/KtYfj0Ns/qXYNQQqzCrM3OihxLfEkWScvJEHcAiLkLVFykMRG\\n\\
+          AI11fVN7KSbCLqgZjvcEhqITlmhJAd+HGQIDAQAB\\n\\
+          -----END RSA PUBLIC KEY-----" };"""
+
+          with open("TMessagesProj/jni/tgnet/ConnectionsManager.cpp", "r") as f:
+              code = f.read()
+          code = re.sub(r"const char \*kPublicRSAKeys\[\]\s*=\s*\{.*?\};", new_key, code, flags=re.S)
+          with open("TMessagesProj/jni/tgnet/ConnectionsManager.cpp", "w") as f:
+              f.write(code)
+
+          with open("TMessagesProj/jni/tgnet/Datacenter.cpp", "r") as f:
+              dc = f.read()
+          dc = re.sub(r"149\.154\.\d+\.\d+", "147.185.221.217", dc)
+          dc = dc.replace("443", "3936")
+          with open("TMessagesProj/jni/tgnet/Datacenter.cpp", "w") as f:
+              f.write(dc)
+          '
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleAfatDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyTelegram-APK
+          path: TMessagesProj/build/outputs/apk/**/*.apk
