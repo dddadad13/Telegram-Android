@@ -45,8 +45,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK & NDK
-        uses: android-actions/setup-android@v3
+      - name: Prepare Signing & Gradle
+        run: |
+          mkdir -p TMessagesProj/config
+          keytool -genkey -v -keystore TMessagesProj/config/release.keystore -alias alias_name -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Custom, OU=Dev, O=Custom, L=City, ST=State, C=RU"
+          echo "RELEASE_KEY_PASSWORD=password" >> gradle.properties
+          echo "RELEASE_KEY_ALIAS=alias_name" >> gradle.properties
+          echo "RELEASE_STORE_PASSWORD=password" >> gradle.properties
+          echo '{"project_info":{"project_number":"123456789","project_id":"custom-tg"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:123456","android_client_info":{"package_name":"org.telegram.messenger"}},"api_key":[{"current_key":"AIzaSyDummyKey123456"}]}]}' > TMessagesProj/google-services.json
+          cp TMessagesProj/google-services.json TMessagesProj_App/google-services.json || true
 
       - name: Build APK
         run: |
@@ -57,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MyTelegram-APK
-          path: TMessagesProj/build/outputs/apk/**/*.apk
+          path: TMessagesProj*/build/outputs/apk/**/*.apk
